@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lily – Voice Assistant</title>
+  <style>
+    body { font-family: Poppins, sans-serif; text-align: center; background:#0d1117; color:#fff; }
+    h1 { margin-top: 40px; }
+    #status { margin: 20px; font-size: 1.1em; color: #58a6ff; }
+  </style>
+</head>
+<body>
+  <h1>🎤 Namaste Lily</h1>
+  <p id="status">Listening for “Namaste Lily”...</p>
+
+  <script>
+  const statusEl = document.getElementById("status");
+  const synth = window.speechSynthesis;
+
+  function speak(text) {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.05;
+      utter.pitch = 1.1;
+      utter.lang = 'en-IN';
+      synth.speak(utter);
+  }
+
+  function startRecognition() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = "en-IN";
+
+      let awaitingCommand = false;
+
+      recognition.onresult = async (event) => {
+          const transcript = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
+          console.log("Heard:", transcript);
+
+          if (!awaitingCommand && transcript.includes("namaste lily")) {
+              statusEl.textContent = "✅ Wake word detected! Listening to your question...";
+              speak("Yes?");
+              awaitingCommand = true;
+          } else if (awaitingCommand) {
+              awaitingCommand = false;
+              statusEl.textContent = "🤔 Processing...";
+              const userText = transcript;
+              const response = await fetch("/ask", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ text: userText })
+              });
+              const data = await response.json();
+              const reply = data.reply;
+              statusEl.textContent = "🗣 Lily: " + reply;
+              speak(reply);
+              statusEl.textContent = "🎧 Listening for “Namaste Lily”…";
+          }
+      };
+
+      recognition.onerror = (event) => {
+          console.error("Speech recognition error:", event.error);
+          statusEl.textContent = "Error: " + event.error + ". Restarting...";
+          recognition.stop();
+          setTimeout(startRecognition, 2000);
+      };
+
+      recognition.onend = () => {
+          recognition.start(); // keep listening forever
+      };
+
+      recognition.start();
+  }
+
+  startRecognition();
+  </script>
+</body>
+</html>
